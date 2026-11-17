@@ -1,2 +1,2 @@
 # Terminus-Lua-Demo
-A working demo Lua script for Terminus mod menu.
+A working demo Lua script for [Terminus](https://github.com/xesdoog/Terminus) mod menu.
