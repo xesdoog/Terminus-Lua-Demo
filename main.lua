@@ -15,10 +15,8 @@ local INPUT_MELEE_ATTACK = 0xB2F377E8
 local maxGoodsGlobal
 local quickPickup = false
 local hogtieGun = false
-local isAiming = false
 local buttonPressed = false
 local lockMaxGoods = false
-local knockoutTarget = 0
 
 ---@nodiscard
 ---@return boolean
@@ -100,7 +98,7 @@ local function ShootBolasAtPed(ped)
 		targetPos.z,
 		0,
 		true,
-		Util.Joaat("weapon_thrown_bolas"),
+		hash,
 		0,
 		false,
 		false,
@@ -117,9 +115,9 @@ local function ForceHogtie(ped, attempts)
 	local i = 0
 
 	while (not PED.IS_PED_HOGTIED(ped) && not PED.IS_PED_BEING_HOGTIED(ped) && i < attempts) do
-		TASK.CLEAR_PED_TASKS_IMMEDIATELY(knockoutTarget, true, true)
-		TASK.CLEAR_PED_SECONDARY_TASK(knockoutTarget)
-		PED.SET_PED_TO_RAGDOLL(knockoutTarget, 500, 1000, 0, false, true, 0)
+		TASK.CLEAR_PED_TASKS_IMMEDIATELY(ped, true, true)
+		TASK.CLEAR_PED_SECONDARY_TASK(ped)
+		PED.SET_PED_TO_RAGDOLL(ped, 500, 1000, 0, false, true, 0)
 		Script.Sleep(33)
 		TASK.TASK_KNOCKED_OUT_AND_HOGTIED(ped, 0.0, 1)
 		Script.Sleep(5000)
@@ -128,7 +126,7 @@ local function ForceHogtie(ped, attempts)
 
 	if (not PED.IS_PED_HOGTIED(ped)) then
 		log.warning("Failed to hogtie ped! Attempting to shoot them with BOLAS")
-		ShootBolasAtPed(knockoutTarget)
+		ShootBolasAtPed(ped)
 	end
 end
 
@@ -193,19 +191,14 @@ local function HogtieGun()
 		return
 	end
 
-	if (knockoutTarget == 0) then
-		isAiming, knockoutTarget = PLAYER.GET_ENTITY_PLAYER_IS_FREE_AIMING_AT(PLAYER.PLAYER_ID(), knockoutTarget)
-	end
-
+	local isAiming, knockoutTarget = PLAYER.GET_ENTITY_PLAYER_IS_FREE_AIMING_AT(PLAYER.PLAYER_ID(), 0)
 	if not (isAiming && ENTITY.IS_ENTITY_A_PED(knockoutTarget) && PED.IS_PED_HUMAN(knockoutTarget)) then
-		knockoutTarget = 0
 		return
 	end
 
 	buttonPressed = PAD.IS_CONTROL_PRESSED(0, INPUT_AIM) && PAD.IS_CONTROL_JUST_RELEASED(0, INPUT_MELEE_ATTACK)
 	if (buttonPressed && knockoutTarget != 0 && TryTakeControlOf(knockoutTarget)) then
 		KidnapPed(knockoutTarget)
-		knockoutTarget = 0
 	end
 end
 
