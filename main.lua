@@ -12,11 +12,8 @@ local INPUT_AIM = 0xF84FA74F
 local INPUT_SPRINT = 0x8FFC75D6
 local INPUT_MELEE_ATTACK = 0xB2F377E8
 
-local maxGoodsGlobal
 local quickPickup = false
 local hogtieGun = false
-local buttonPressed = false
-local lockMaxGoods = false
 
 ---@nodiscard
 ---@return boolean
@@ -196,7 +193,7 @@ local function HogtieGun()
 		return
 	end
 
-	buttonPressed = PAD.IS_CONTROL_PRESSED(0, INPUT_AIM) && PAD.IS_CONTROL_JUST_RELEASED(0, INPUT_MELEE_ATTACK)
+	local buttonPressed = PAD.IS_CONTROL_PRESSED(0, INPUT_AIM) && PAD.IS_CONTROL_JUST_RELEASED(0, INPUT_MELEE_ATTACK)
 	if (buttonPressed && knockoutTarget != 0 && TryTakeControlOf(knockoutTarget)) then
 		KidnapPed(knockoutTarget)
 	end
@@ -212,10 +209,6 @@ Menu.RegisterImGui(function()
 
 	hogtieGun = ImGui.Checkbox("Hogtie Gun", hogtieGun)
 	Tooltip("Aim at an NPC with any weapon and press [F] to bring them to you knocked out and hogtied.")
-
-	ImGui.Spacing()
-	ImGui.SeparatorText("Trader")
-	lockMaxGoods = ImGui.Checkbox("Force Max Trader Goods", lockMaxGoods)
 
 	ImGui.Spacing()
 	ImGui.SeparatorText("Bounty Hunter")
@@ -242,29 +235,6 @@ Menu.RegisterImGui(function()
 			TASK.CLEAR_PED_TASKS_IMMEDIATELY(target, true, true)
 			Script.Sleep(1000)
 			LocalPlayer:Teleport(ENTITY.GET_ENTITY_COORDS(target, false, true))
-		end)
-	end
-
-	ImGui.Spacing()
-	ImGui.SeparatorText("Debug")
-
-	if (ImGui.Button("Get Running Tasks")) then
-		Script.RunInFiber(function()
-			local ped = PLAYER.PLAYER_PED_ID()
-			local buff = {}
-			local count = 0
-			for i = 0, 0x2DF do
-				if (TASK.GET_IS_TASK_ACTIVE(ped, i)) then
-					table.insert(buff, i)
-					count += 1
-				end
-			end
-
-			if (count == 0) then
-				log.info("We're not running any tasks.")
-			else
-				log.info(table.concat(buff, ", "))
-			end
 		end)
 	end
 end)
