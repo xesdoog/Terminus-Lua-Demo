@@ -243,7 +243,7 @@ Script.RunInFiber(function()
 	while (true) do
 		Script.Yield()
 		if (not IsPlaying()) then
-			return
+			continue
 		end
 
 		-- if (quickPickup && TASK.GET_IS_TASK_ACTIVE(playerPed, 631)) then
