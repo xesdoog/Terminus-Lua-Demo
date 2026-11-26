@@ -1,5 +1,6 @@
-local Helpers         = require("includes.helpers")
-local bountyPedModels = require("includes.bounty_ped_models")
+local Config          = require("includes.lib.global_vars").Config
+local Helpers         = require("includes.lib.helpers")
+local bountyPedModels = require("includes.data.bounty_ped_models")
 local bountyTargets   = {}
 for _, model in ipairs(bountyPedModels) do
 	bountyTargets[Util.Joaat(model)] = true
@@ -59,17 +60,28 @@ local function TryGetAllBountyTargets()
 end
 
 return function()
+	local cfg    = Config.bounty_kidnapper
+
+	cfg.Knockout = ImGui.Checkbox("Knockout", cfg.Knockout)
+	Helpers.Tooltip("Knockout the target before bringing it.")
+
+	cfg.Hogtie = ImGui.Checkbox("Hogtie", cfg.Hogtie)
+	Helpers.Tooltip("Hogtie the target before bringing it.")
+
+	cfg.Kill = ImGui.Checkbox("Kill", cfg.Kill)
+	Helpers.Tooltip("Bring the target dead.")
+
 	if (ImGui.Button("Yoink Bounty Target")) then
 		Script.RunInFiber(function()
 			for i, ped in ipairs(TryGetAllBountyTargets()) do
-				Helpers.BringEntity(ped, i, { Knockout = true, Hogtie = true, Kill = false })
+				Helpers.BringEntity(ped, i, cfg)
 				Script.Yield(120)
 			end
 		end)
 	end
 
 	Helpers.Tooltip(
-		"Brings the bounty target to you knocked out and hogtied.\n\n[Note]: Under certain circumstances, like clue missions, the target may be invisible but you can still pick them up and deliver them.\nFor clue missions, it is recommended to inspect at least one clue before pressing this button.")
+		"Brings the bounty target to you.\n\n[Note]: Under certain circumstances, like clue missions, the target may be invisible but you can still pick them up and deliver them.\nFor clue missions, it is recommended to inspect at least one clue before pressing this button.")
 
 	if (ImGui.Button("Teleport To Bounty Target")) then
 		Script.RunInFiber(function()

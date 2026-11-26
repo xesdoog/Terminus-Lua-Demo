@@ -1,15 +1,13 @@
----@class float : number
-
-local Config        = require("includes.global_vars").Config
-local Helpers       = require("includes.helpers")
-local NATIVE_INPUTS = require("includes.native_inputs")
-local IsBitSet      = Helpers.IsBitSet
+local Config        = require("includes.lib.global_vars").Config
+local Helpers       = require("includes.lib.helpers")
+local NATIVE_INPUTS = require("includes.data.native_inputs")
+local IsBitSet      = Bit.IsBitSet
+local FlipBit       = Bit.Flip
 local IsPlaying     = Helpers.IsPlaying
 local Tooltip       = Helpers.Tooltip
 
 
 local INPUT_AIM          = NATIVE_INPUTS.INPUT_AIM
-local INPUT_SPRINT       = NATIVE_INPUTS.INPUT_SPRINT
 local INPUT_MELEE_ATTACK = NATIVE_INPUTS.INPUT_MELEE_ATTACK
 
 
@@ -131,7 +129,7 @@ function EntityGrabber:Draw()
 		for _, obj in pairs(EntityFlagsUiSetup) do
 			local bit = obj.bit
 			if select(2, ImGui.Checkbox(obj.label, IsBitSet(cfg.entity_flags, bit))) then
-				cfg.entity_flags = Helpers.FlipBit(cfg.entity_flags, bit)
+				cfg.entity_flags = FlipBit(cfg.entity_flags, bit)
 			end
 		end
 

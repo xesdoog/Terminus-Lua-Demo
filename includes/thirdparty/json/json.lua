@@ -1106,5 +1106,4 @@ local function JSON()
 	return OBJDEF:new()
 end
 
-jit.off(JSON, true)
 return JSON

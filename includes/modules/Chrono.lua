@@ -1,0 +1,520 @@
+-- Copyright (C) 2026 SAMURAI (xesdoog) & Contributors.
+-- This file is part of Samurai's Scripts.
+--
+-- Permission is hereby granted to copy, modify, and redistribute
+-- this code as long as you respect these conditions:
+--	* Credit the owner and contributors.
+--	* Provide a copy of or a link to the original license (GPL-3.0 or later); see LICENSE.md or <https://www.gnu.org/licenses/>.
+
+local Callable = require("includes.api.callable").Callable
+local _F       = string.format
+
+
+-- TODO: refactor all this into a chrono class.
+
+--------------------------------------
+-- Class: Time
+--------------------------------------
+--**Global Singleton.**
+---@class Time
+local Time   = { __type = "Time" }
+Time.__index = Time
+
+-- Returns an approximation of the amount in seconds of CPU time used by the program.
+--
+-- **NOTE:** if you need real world clock time, use `DateTime:new()` or `DateTime.Now()` or `DateTime.Today()`
+---@return seconds
+function Time.Now()
+	return os.clock()
+end
+
+-- Returns an approximation of the amount in milliseconds of CPU time used by the program.
+---@return milliseconds
+function Time.Millis()
+	return os.clock() * 1000
+end
+
+---@param seconds seconds
+---@return seconds
+function Time.Future(seconds)
+	if (type(seconds) ~= "number") then
+		return Time.Now()
+	end
+
+	return Time.Now() + seconds
+end
+
+---@param ms milliseconds
+---@return milliseconds
+function Time.FutureMS(ms)
+	if (type(ms) ~= "number") then
+		return Time.Millis()
+	end
+
+	return Time.Millis() + ms
+end
+
+-- Sleeps for the given duration in milliseconds.
+--
+-- Must be called inside a coroutine and within a scheduler loop.
+---@param ms milliseconds
+function Time.Sleep(ms)
+	local future = Time.FutureMS(ms)
+	while (Time.Millis() < future) do
+		Script.Yield()
+	end
+end
+
+---@param seconds seconds
+---@return seconds
+function Time.SecondsAgo(seconds)
+	if (type(seconds) ~= "number") then
+		return 0
+	end
+
+	return math.max(Time.Now() - seconds, 0)
+end
+
+---@param ms milliseconds
+---@return milliseconds
+function Time.MillisAgo(ms)
+	if (type(ms) ~= "number") then
+		return 0
+	end
+
+	return math.max(Time.Millis() - ms, 0)
+end
+
+---@param since seconds
+---@param duration seconds
+---@return boolean
+function Time.HasElapsed(since, duration)
+	return Time.Now() >= (since + duration)
+end
+
+---@param since milliseconds
+---@param duration milliseconds
+---@return boolean
+function Time.HasElapsedMillis(since, duration)
+	return Time.Millis() >= (since + duration)
+end
+
+-- Same as `Time.seconds_ago`. just gor readability and intent
+---@param since seconds
+---@return seconds
+function Time.Elapsed(since)
+	return Time.Now() - since
+end
+
+-- Same as `Time.ms_ago`. just gor readability and intent
+---@param since milliseconds
+---@return milliseconds
+function Time.ElapsedMillis(since)
+	return Time.Millis() - since
+end
+
+---@return seconds
+function Time.Epoch()
+	return os.time()
+end
+
+---@param s seconds
+---@return string `HH:MM:SS`
+function Time.FormatSeconds(s)
+	if (type(s) ~= "number" or s <= 0) then
+		return "00:00:00"
+	end
+
+	local h = math.floor(s / 3600)
+	local m = math.floor((s % 3600) / 60)
+	return _F("%02d:%02d:%02d", h, m, s % 60)
+end
+
+---@param ms milliseconds
+---@return string `HH:MM:SS`
+function Time.FormatMillis(ms)
+	if (type(ms) ~= "number" or ms <= 0) then
+		return "00:00:00"
+	end
+
+	return Time.FormatSeconds(math.floor(ms / 1000))
+end
+
+---@param s seconds
+---@return string `HH:MM:SS`
+function Time.FormatSince(s)
+	if (type(s) ~= "number" or s <= 0) then
+		return "00:00:00"
+	end
+
+	local diff = math.max(0, math.floor(Time.Now() - s))
+	local H    = math.floor(diff / 3600)
+	local M    = math.floor((diff % 3600) / 60)
+	local S    = diff % 60
+
+	return _F("%02d:%02d:%02d", H, M, S)
+end
+
+---@param ms milliseconds
+---@return string `HH:MM:SS`
+function Time.FormatSinceMillis(ms)
+	if (type(ms) ~= "number" or ms <= 0) then
+		return "00:00:00"
+	end
+
+	return Time.FormatSince(math.floor(ms / 1000))
+end
+
+--------------------------------------
+-- Subclass: Timer
+--------------------------------------
+---@class Timer
+---@field private m_duration milliseconds
+---@field private m_start_time milliseconds
+---@field private m_pause_time milliseconds|nil
+---@field private m_is_paused boolean
+---@overload fun(ms: milliseconds, startPaused?: boolean): Timer
+local Timer = Callable("Timer", { ctor = function(t, ...) return t:new(...) end })
+
+-- Creates a new timer that runs for `duration` milliseconds.
+---@param duration milliseconds
+---@param startPaused? boolean
+---@return Timer
+function Timer:new(duration, startPaused)
+	assert(type(duration) == "number" and duration > 0, "Timer duration must be a number >= 0 (milliseconds).")
+	local instance = setmetatable({
+		m_duration   = math.max(0, duration or 0),
+		m_start_time = Time.Millis(),
+		m_pause_time = nil,
+		m_is_paused  = false,
+		---@diagnostic disable-next-line: param-type-mismatch
+	}, Timer)
+
+	if (startPaused) then
+		instance:Pause()
+	end
+
+	return instance
+end
+
+---@return boolean
+function Timer:IsDone()
+	return self:Elapsed() >= self.m_duration
+end
+
+---@return boolean
+function Timer:IsPaused()
+	return self.m_is_paused
+end
+
+-- Returns the elapsed time in milliseconds.
+---@return milliseconds
+function Timer:Elapsed()
+	if self.m_is_paused and self.m_pause_time then
+		return self.m_pause_time - self.m_start_time
+	else
+		return Time.Millis() - self.m_start_time
+	end
+end
+
+-- Returns the remaining time in milliseconds.
+---@return milliseconds
+function Timer:Remaining()
+	return math.max(0, self.m_duration - self:Elapsed())
+end
+
+function Timer:Pause()
+	if (self.m_is_paused) then
+		return
+	end
+
+	self.m_is_paused  = true
+	self.m_pause_time = Time.Millis()
+end
+
+function Timer:Resume()
+	if (not self.m_is_paused) then
+		return
+	end
+
+	local pauseDuration = Time.Millis() - self.m_pause_time
+	self.m_start_time   = self.m_start_time + pauseDuration
+	self.m_is_paused    = false
+	self.m_pause_time   = nil
+end
+
+-- Resets the timer to start over (optionally with a new duration).
+---@param new_duration? milliseconds Optional.
+function Timer:Reset(new_duration)
+	self.m_duration   = new_duration or self.m_duration
+	self.m_start_time = Time.Millis()
+	self.m_is_paused  = false
+	self.m_pause_time = nil
+end
+
+-- Resets and pauses the timer
+function Timer:Freeze()
+	self:Reset()
+	self:Pause()
+end
+
+--------------------------------------
+-- Subclass: TimePoint
+--------------------------------------
+---@class TimePoint
+---@field private m_value milliseconds
+---@overload fun(): TimePoint
+local TimePoint = Callable("TimePoint", { ctor = function(t) return t:new() end })
+
+-- Returns a new point in time in milliseconds starting now *(zero ms)*.
+---@return TimePoint
+function TimePoint:new()
+	return setmetatable({ m_value = Time.Millis() }, self)
+end
+
+---@return milliseconds
+function TimePoint:Value()
+	return self.m_value
+end
+
+-- Returns the amount of elapsed time since this point in time.
+---@return milliseconds
+function TimePoint:Elapsed()
+	return Time.Millis() - self.m_value
+end
+
+---@param ms milliseconds
+---@return boolean
+function TimePoint:HasElapsed(ms)
+	return self:Elapsed() >= ms
+end
+
+---@param offset milliseconds
+function TimePoint:Increment(offset)
+	self.m_value = self.m_value + offset
+end
+
+function TimePoint:Reset()
+	self.m_value = Time.Millis()
+end
+
+--------------------------------------
+-- Subclass: DateTime
+--------------------------------------
+---@class DateTime
+---@field private m_epoch seconds
+---@field private m_dt osdatefixed
+---@field private m_fmt_warn boolean
+---@overload fun(p0: (seconds|osdateparam)?): DateTime
+local DateTime = Callable("DateTime", { ctor = function(t, ...) return t:new(...) end })
+
+---@param p0 (seconds|osdate|osdatefixed)?
+---@return DateTime
+function DateTime:new(p0)
+	local epoch
+
+	if (type(p0) == "table") then
+		assert(type(p0.year) == "number", "Invalid argument: year<integer>")
+		assert(type(p0.month) == "number", "Invalid argument: month<integer>")
+		assert(type(p0.day) == "number", "Invalid argument: day<integer>")
+		---@diagnostic disable-next-line: param-type-mismatch
+		epoch = os.time(p0)
+	elseif (type(p0) == "number") then
+		epoch = p0
+	else
+		epoch = os.time()
+	end
+
+	return setmetatable({
+		m_epoch = epoch,
+		m_dt    = os.date("*t", epoch)
+	}, self)
+end
+
+---@return DateTime
+function DateTime.Now()
+	return DateTime:new()
+end
+
+---@return DateTime
+function DateTime.Today()
+	return DateTime:new()
+end
+
+-- RAGE DateTime struct
+local RageDTStruct        = {}
+RageDTStruct.__index      = RageDTStruct
+local RageDTStructOffsets = {
+	["year"]  = { offset = 0x0, default = 2025, min = 1970, max = 9999 },
+	["month"] = { offset = 0x8, default = 1, min = 1, max = 12 },
+	["day"]   = { offset = 0x10, default = 1, min = 1, max = 31 },
+	["hour"]  = { offset = 0x18, default = 0, min = 0, max = 23 },
+	["min"]   = { offset = 0x20, default = 0, min = 0, max = 59 },
+	["sec"]   = { offset = 0x28, default = 0, min = 0, max = 59 },
+}
+
+---@param epoch seconds
+---@return Pointer<array<uint64_t>>
+function RageDTStruct.FromPosix(epoch)
+	local ostdatetime = os.date("*t", epoch) ---@cast ostdatetime osdate
+	local outPtr      = Memory.Allocate(0x8 * 7)
+	outPtr:Add(0x30):WriteUint64(math.random(0, 59)) -- ms
+	for k, v in pairs(RageDTStructOffsets) do
+		outPtr:Add(v.offset):WriteUint64(ostdatetime[k] or v.default)
+	end
+	return outPtr
+end
+
+---@param ptr Pointer<array<uint64_t>>
+---@return DateTime
+function RageDTStruct.FromPointer(ptr)
+	local t = {}
+	for k, v in pairs(RageDTStructOffsets) do
+		local val64 = ptr:Add(v.offset):ReadUint64()
+		if (not math.is_inrange(val64, v.min, v.max)) then
+			Memory.Free(ptr)
+			return DateTime:new(0)
+		end
+		t[k] = val64
+	end
+
+	Memory.Free(ptr)
+	return DateTime:new(t)
+end
+
+-- Static function.
+--
+-- Takes a pointer and frees it on return.
+---@param ptr Pointer<array<uint64_t>>
+---@return DateTime
+function DateTime.FromRageDateStruct(ptr)
+	return RageDTStruct.FromPointer(ptr)
+end
+
+---@param fmt? string
+---@return string
+function DateTime:Format(fmt)
+	local epoch = self.m_epoch
+	if (epoch == nil) then
+		if (not self.m_fmt_warn) then
+			log.warning(
+				"[DateTime]: Calling 'Format' from the DateTime class itself. Please consider creating an instance first.")
+			self.m_fmt_warn = true
+		end
+		epoch = os.time()
+	end
+
+	if (fmt == "*t") then
+		log.warning("[DateTime]: '*t' format is not supported. Format method only returns a string.")
+	end
+
+	---@diagnostic disable-next-line
+	return os.date(fmt or "%Y-%m-%d %H:%M:%S", epoch)
+end
+
+---@return seconds
+function DateTime:Epoch()
+	return self.m_epoch
+end
+
+---@return osdatefixed
+function DateTime:AsTable()
+	return self.m_dt
+end
+
+---@return milliseconds
+function DateTime:ToMillis()
+	return self.m_epoch * 1000
+end
+
+---@return Pointer<array<uint64_t>>
+function DateTime:AsRageDateStruct()
+	return RageDTStruct.FromPosix(self.m_epoch)
+end
+
+---@param a DateTime|seconds
+---@param b DateTime|seconds
+---@return DateTime
+function DateTime.__add(a, b)
+	if type(a) == "number" then
+		return DateTime:new(b.m_epoch + a)
+	elseif type(b) == "number" then
+		return DateTime:new(a.m_epoch + b)
+	elseif (type(a) == "table" && type(b) == "table" && a.m_epoch) then
+		return DateTime:new(a.m_epoch + b.m_epoch)
+	else
+		error("Attempt to perform arithmetic on a DateTime object with an invalid operand.")
+	end
+end
+
+---@param a DateTime|seconds
+---@param b DateTime|seconds
+---@return DateTime|seconds -- DateTime or duration
+function DateTime.__sub(a, b)
+	if (type(a) == "number") then
+		return DateTime:new(b.m_epoch - a)
+	elseif (type(b) == "number") then
+		return DateTime:new(a.m_epoch - b)
+	elseif (type(a) == "table" && type(b) == "table" && a.m_epoch) then
+		return a.m_epoch - b.m_epoch
+	else
+		error("Attempt to perform arithmetic on a DateTime object with an invalid operand.")
+	end
+end
+
+---@param a DateTime|seconds
+---@param b DateTime|seconds
+---@return boolean
+function DateTime.__lt(a, b)
+	if (type(a) == "number") then
+		return b.m_epoch < a
+	elseif (type(b) == "number") then
+		return a.m_epoch < b
+	elseif (type(a) == "table" && type(b) == "table" && a.m_epoch) then
+		return a.m_epoch < b.m_epoch
+	else
+		error("Attempt to compare a DateTime object to an invalid operand.")
+	end
+end
+
+---@param a DateTime|seconds
+---@param b DateTime|seconds
+---@return boolean
+function DateTime.__le(a, b)
+	if (type(a) == "number") then
+		return b.m_epoch <= a
+	elseif (type(b) == "number") then
+		return a.m_epoch <= b
+	elseif (type(a) == "table" && type(b) == "table" && a.m_epoch) then
+		return a.m_epoch <= b.m_epoch
+	else
+		error("Attempt to compare a DateTime object to an unknown operand.")
+	end
+end
+
+---@param a DateTime|seconds
+---@param b DateTime|seconds
+---@return boolean
+function DateTime.__eq(a, b)
+	if (type(a) == "number") then
+		return b.m_epoch == a
+	elseif (type(b) == "number") then
+		return a.m_epoch == b
+	elseif (type(a) == "table" && type(b) == "table" && a.m_epoch) then
+		return a.m_epoch == b.m_epoch
+	else
+		error("Attempt to compare a DateTime object to an unknown operand.")
+	end
+end
+
+---@return string
+function DateTime:__tostring()
+	return self:Format()
+end
+
+return {
+	Time      = Time,
+	Timer     = Timer,
+	TimePoint = TimePoint,
+	DateTime  = DateTime,
+}

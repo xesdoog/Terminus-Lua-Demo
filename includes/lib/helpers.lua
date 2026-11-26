@@ -51,14 +51,22 @@ end
 
 ---@param ped integer
 ---@param weaponNameOrHash string|integer
-function Helpers.ShootAtPed(ped, weaponNameOrHash)
+---@param opts { boneIndex?: integer, damage?: integer, instigator?: integer, damage?: integer }?
+function Helpers.ShootAtPed(ped, weaponNameOrHash, opts)
+	opts = opts or {}
 	local hash = type(weaponNameOrHash) == "string" ? Util.Joaat(weaponNameOrHash) : weaponNameOrHash
 	if (not WEAPON.IS_WEAPON_VALID(hash)) then
 		return
 	end
 
 	local playerPos = LocalPlayer:GetPed():GetPosition()
-	local targetPos = ENTITY.GET_ENTITY_COORDS(ped, true, true)
+	local targetPos
+	if (opts.boneIndex) then
+		targetPos = Ped(ped):GetBonePosition(opts.boneIndex)
+	else
+		targetPos = ENTITY.GET_ENTITY_COORDS(ped, false, true)
+	end
+
 	WEAPON._REQUEST_WEAPON_ASSET(hash, 31, false)
 	MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
 		playerPos.x,
@@ -67,10 +75,10 @@ function Helpers.ShootAtPed(ped, weaponNameOrHash)
 		targetPos.x,
 		targetPos.y,
 		targetPos.z,
-		0,
+		opts.damage or 0,
 		true,
 		hash,
-		0,
+		opts.instigator or 0,
 		false,
 		false,
 		-1082130432,
@@ -85,9 +93,9 @@ end
 function Helpers.BringEntityToPlayer(entity, offset)
 	local coords = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(
 		PLAYER.PLAYER_PED_ID(),
-		offset or 1,
-		1,
-		0
+		0.0,
+		offset or 1.0,
+		0.0
 	)
 
 	if (not Util.Teleport(entity, coords, false)) then
@@ -158,6 +166,33 @@ function Helpers.BringEntity(entity, tpOffset, pedOptions)
 			ENTITY.SET_ENTITY_HEALTH(entity, 0, 0)
 		end
 	end
+end
+
+---@param textureDict integer JOAAT
+---@param texture integer JOAAT
+---@param x float
+---@param y float
+---@param width float
+---@param height float
+---@param rotation float
+---@param r integer
+---@param g integer
+---@param b integer
+---@param a integer
+---@param stereorize boolean
+function Helpers.DrawTexture(textureDict, texture,x, y, width, height,rotation,r, g, b, a, stereorize)
+    if (not TXD.HAS_STREAMED_TXD_LOADED(textureDict)) then
+       TXD.REQUEST_STREAMED_TEXTURE_DICT(textureDict, false)
+	   return
+    end
+
+	GRAPHICS.DRAW_SPRITE(textureDict, texture, 0.5, 0.5, width, height, rotation, r, g, b, a, stereorize)
+end
+
+---@param textureHash integer JOAAT
+---@param pos Vector3
+function Helpers.DrawMarker(textureHash, pos)
+	GRAPHICS._DRAW_MARKER(0x94FDAE17, pos.x, pos.y, pos.z + 1.0, 0, 0, 0, 0, 0, 0, 1.0 , 1.0, 1.0, 250, 250, 100, 250, false, true, 2, false, 0, 0, true)
 end
 
 return Helpers

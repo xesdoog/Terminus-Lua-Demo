@@ -1,0 +1,114 @@
+-- Copyright (C) 2026 SAMURAI (xesdoog) & Contributors.
+-- This file is part of Samurai's Scripts.
+--
+-- Permission is hereby granted to copy, modify, and redistribute
+-- this code as long as you respect these conditions:
+--	* Credit the owner and contributors.
+--	* Provide a copy of or a link to the original license (GPL-3.0 or later); see LICENSE.md or <https://www.gnu.org/licenses/>.
+
+local Callable = require("includes.api.callable").Callable
+
+-----------------------------------------
+-- Cast Module
+-----------------------------------------
+-- Explicit integer type casting helpers
+--
+-- Usage example:
+--
+--```lua
+--local c = Cast(65535)
+--print(c:AsUint16_t()) --> 65535
+--print(c:AsInt16_t()) --> -1
+--```
+-----------------------------------------
+---@class Cast : Callable<Cast>
+---@field private m_value integer
+---@overload fun(n: integer): Cast
+local Cast = Callable("Cast", { ctor = function(t, ...) return t:new(...) end })
+
+-- Constructor
+---@param n integer
+---@return Cast
+function Cast:new(n)
+	local _t = type(n)
+	assert(_t == "number", _F("[Cast]: Invalid parameter! Number expected, got %s instead", _t))
+	return setmetatable({ m_value = n }, self)
+end
+
+---@return uint8_t
+function Cast:AsUint8()
+	return self.m_value & 0xFF
+end
+
+---@return int8_t
+function Cast:AsInt8()
+	local v = self.m_value & 0xFF
+
+	if (v >= 0x80) then
+		return v - 0x100
+	end
+
+	return v
+end
+
+---@return uint16_t
+function Cast:AsUint16()
+	return self.m_value & 0xFFFF
+end
+
+---@return int16_t
+function Cast:AsInt16()
+	local v = self.m_value & 0xFFFF
+
+	if (v >= 0x8000) then
+		return v - 0x10000
+	end
+
+	return v
+end
+
+---@return uint32_t
+function Cast:AsUint32()
+	return self.m_value & 0xFFFFFFFF
+end
+
+---@return int32_t
+function Cast:AsInt32()
+	local v = self.m_value & 0xFFFFFFFF
+
+	if (v >= 0x80000000) then
+		return v - 0x100000000
+	end
+
+	return v
+end
+
+---@return joaat_t
+function Cast:AsJoaat()
+	---@diagnostic disable-next-line: return-type-mismatch
+	return self:AsUint32()
+end
+
+-- **[NOTE]** Lua numbers are IEEE-754 doubles so this **will lose precision above 2^53**.
+--
+-- V1 does not have `bigint` or an `FFI` lib so this will have to do.
+---@return uint64_t
+function Cast:AsUint64()
+	local lo = self.m_value & 0xFFFFFFFF
+	local hi = math.floor(self.m_value / 0x100000000) & 0xFFFFFFFF
+
+	return hi * 0x100000000 + lo
+end
+
+---@return int64_t
+function Cast:AsInt64()
+	local u = self:AsUint64()
+
+	if (u >= 0x8000000000000000) then
+		return u - 0x10000000000000000
+	end
+
+	return u
+end
+
+return Cast

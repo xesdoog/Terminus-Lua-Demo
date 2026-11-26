@@ -1,9 +1,11 @@
-require("includes.simple_serializer"):Init()
+require("includes.api.extensions.__init__")
+require("includes.modules.SimpleSerializer"):Init()
 
 local DrawTrader       = require("includes.features.trader")
 local DrawBountyHunter = require("includes.features.bounty_hunter")
-local DrawMisc         = require("includes.features.test")
+-- local DrawMisc         = require("includes.features.test")
 local EntityGrabber    = require("includes.features.entity_grabber")
+local SyncShot         = require("includes.features.syncshot")
 
 Menu.RegisterImGui(function()
 	if (not Network.IsSessionStarted()) then
@@ -17,13 +19,19 @@ Menu.RegisterImGui(function()
 			ImGui.EndTabItem()
 		end
 
-		if (ImGui.BeginTabItem("Trader Test")) then
+		if (ImGui.BeginTabItem("Trader")) then
 			DrawTrader()
 			ImGui.EndTabItem()
 		end
 
-		if (ImGui.BeginTabItem("Entity Grabber")) then
+		if (ImGui.BeginTabItem("Extra")) then
+			ImGui.SeparatorText("SyncShot")
+			SyncShot:Draw()
+
+			ImGui.Spacing()
+			ImGui.SeparatorText("Entity Grabber")
 			EntityGrabber:Draw()
+
 			ImGui.EndTabItem()
 		end
 

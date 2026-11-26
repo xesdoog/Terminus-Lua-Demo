@@ -1,0 +1,100 @@
+-- Copyright (C) 2026 SAMURAI (xesdoog) & Contributors.
+-- This file is part of Samurai's Scripts.
+--
+-- Permission is hereby granted to copy, modify, and redistribute
+-- this code as long as you respect these conditions:
+--	* Credit the owner and contributors.
+--	* Provide a copy of or a link to the original license (GPL-3.0 or later); see LICENSE.md or <https://www.gnu.org/licenses/>.
+
+
+---@class ClassMeta<T>
+---@field public new? fun(...): ClassMeta<T>
+---@field public init? fun(self: T, ...): ClassMeta<T>
+---@field public extend fun(self: T, subclassName: string): ClassMeta<T>
+---@field public notify fun(self: T, fmt: string, ...?: any) : nil
+---@field public __name string
+---@field public __type string
+---@field protected super fun(self: T): ClassMeta<T>
+---@field protected __base? ClassMeta<T>
+
+-- TODO: refactor this into forward declarations and lazy base class resolution because I'm done juggling Lua require order. IM DONE
+
+-- All class-level helper methods use lowercase: new, init, extend, serialize, isinstance, super, etc.
+--
+-- This avoids clashing with PascalCase global utils and class methods and ensures style consistency.
+---@generic T
+---@param name string Class name
+---@param opts? { parent?: T, symbolic_size?: integer, pointer_ctor?: boolean }
+---@return ClassMeta<T>
+function Class(name, opts)
+	opts        = opts or {}
+	local cls   = {
+		m_size     = opts.symbolic_size or GenericClass.m_size,
+		__name     = name,
+		__type     = name,
+		__ptr_ctor = opts.pointer_ctor or false
+	}
+
+	cls.__index = cls
+	local base  = opts.parent
+	if (base) then
+		-- so I have to manually copy base metamethods? https://www.youtube.com/watch?v=AxkZJmi-5xc
+		for k, v in pairs(base) do
+			if (k:match("^__") and cls[k] == nil) then
+				cls[k] = v
+			end
+		end
+
+		cls.__base = base
+	end
+
+	-- classes can be initialized directly without explicitly calling the constructor.
+	setmetatable(cls, {
+		__call = function(c, ...)
+			local instance
+
+			if (base) then
+				if base.new then
+					instance = base.new(...)
+				elseif base.init then
+					instance = base:init(...)
+				end
+			end
+
+			if (c.new) then
+				instance = c.new(...)
+			elseif (c.init) then
+				instance = c:init(...)
+			else
+				instance = {}
+			end
+
+			if (type(instance) == "table") then
+				instance.__type = c.__type
+				setmetatable(instance, c)
+			end
+
+			return instance
+		end,
+		__index = base,
+	})
+
+	function cls:super()
+		return self.__base or self
+	end
+
+	---@param sub_name string
+	---@param sub_size? integer
+	function cls:extend(sub_name, sub_size)
+		return Class(sub_name, { parent = self, symbolic_size = sub_size })
+	end
+
+	-- If ToastNotifier is available, calls `Notifier:ShowMessage`. Otherwise logs to console.
+	function cls:notify(fmt, ...)
+		local msg = (... ~= nil) and string.format(fmt, ...) or fmt
+		local caller = name:gsub("_", " "):titlecase()
+		log.info("[" .. caller .. "]: " .. msg)
+	end
+
+	return cls
+end

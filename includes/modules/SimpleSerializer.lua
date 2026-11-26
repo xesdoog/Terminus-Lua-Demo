@@ -1,5 +1,5 @@
-local json 	 = require("includes.vendor.json")()
-local Config = require("includes.global_vars").Config
+local json 	 = require("includes.thirdparty.json.json")()
+local Config = require("includes.lib.global_vars").Config
 
 
 ---@class SimpleSerializer<T>
