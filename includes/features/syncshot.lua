@@ -1,8 +1,8 @@
+local NATIVE_INPUTS = require("includes.data.native_inputs")
 local Config        = require("includes.lib.global_vars").Config
 local Helpers       = require("includes.lib.helpers")
 local Set           = require("includes.api.classes.Set")
 local IsPlaying     = Helpers.IsPlaying
-local NATIVE_INPUTS = require("includes.data.native_inputs")
 
 
 local INPUT_AIM         = NATIVE_INPUTS.INPUT_AIM
@@ -16,7 +16,7 @@ local INPUT_FRONTEND_LB = NATIVE_INPUTS.INPUT_FRONTEND_LB
 ---@field private m_last_target_cleanup TimePoint
 ---@field private m_initialized boolean
 local SyncShot   = { m_initialized = false }
-SyncShot.__index = SyncShot
+SyncShot.__index = SyncShot ---@private
 
 ---@private
 ---@return SyncShot
@@ -43,6 +43,7 @@ function SyncShot:Init()
 	return self
 end
 
+---@private
 function SyncShot:DrawTags()
 	if (self.m_is_shooting || self.m_targets:IsEmpty()) then
 		return
@@ -64,7 +65,7 @@ function SyncShot:DrawTags()
 			0.0, 0.0, 0.0,
 			0.0, 0.0, 0.0,
 			0.12, 0.12, 0.12,
-			255, 1, 1, 255,
+			250, 1, 1, 255,
 			false,
 			true,
 			2,
@@ -76,6 +77,7 @@ function SyncShot:DrawTags()
 	end
 end
 
+---@private
 ---@param target integer
 function SyncShot:OnTargetTagged(target)
 	if (self.m_targets:Contains(target)) then
@@ -94,6 +96,7 @@ function SyncShot:OnTargetTagged(target)
 	end
 end
 
+---@private
 function SyncShot:Cleanup()
 	if (not self.m_last_target_cleanup:HasElapsed(2000)) then
 		return
@@ -123,6 +126,7 @@ function SyncShot:Cleanup()
 	self.m_last_target_cleanup:Reset()
 end
 
+---@private
 function SyncShot:OnTick()
 	self:DrawTags()
 
@@ -133,7 +137,7 @@ function SyncShot:OnTick()
 
 	local _, entity = PLAYER.GET_ENTITY_PLAYER_IS_FREE_AIMING_AT(PLAYER.PLAYER_ID(), 0)
 	if (ENTITY.DOES_ENTITY_EXIST(entity) && ENTITY.IS_ENTITY_A_PED(entity) && not ENTITY.IS_ENTITY_DEAD(entity)) then
-		if (PAD.IS_CONTROL_PRESSED(0, INPUT_AIM) && PAD.IS_CONTROL_JUST_RELEASED(0, INPUT_FRONTEND_LB)) then
+		if (PAD.IS_CONTROL_PRESSED(0, INPUT_AIM) && KeyManager:IsKeyJustReleased(Config.syncshot.hotkey)) then
 			self:OnTargetTagged(entity)
 		end
 	end
@@ -165,20 +169,37 @@ function SyncShot:OnTick()
 	self:Cleanup()
 end
 
+---@public
 function SyncShot:Draw()
 	local cfg = Config.syncshot
 	cfg.enabled = ImGui.Toggle("Enable Script##SyncShot", cfg.enabled)
+	Helpers.Tooltip(
+		"Aim at peds and press [A] to tag them.\nAll tagged enemies will be shot in the head as soon as you fire your weapon."
+	)
+
 
 	if (cfg.enabled) then
-		Helpers.Tooltip(
-			"Aim at peds and press [A] to tag them.\nAll tagged enemies will be shot in the head as soon as you fire your weapon."
-		)
+		local current = KeyManager:GetKeyByCode(cfg.hotkey)
+		if (ImGui.BeginCombo("Hotkey##SyncShot", current ? current.name : string.format("0x%X", cfg.hotkey))) then
+			for k, v in pairs(eVirtualKeyCodes) do
+				local selected = v == cfg.hotkey
+				if (ImGui.Selectable(k, selected)) then
+					cfg.hotkey = v
+				end
+
+				if (selected) then
+					ImGui.SetItemDefaultFocus()
+				end
+			end
+			ImGui.EndCombo()
+		end
 
 		cfg.max_targets = ImGui.SliderInt("Max Targets", cfg.max_targets, 0, 10)
 		Helpers.Tooltip("Maximum number of targets. 0 means unlimited tags.")
 
-		ImGui.BeginDisabled(self.m_targets:IsEmpty())
-		if (ImGui.Button("Clear All Tags")) then
+		local tagCount = self.m_targets:Size()
+		ImGui.BeginDisabled(tagCount == 0)
+		if (ImGui.Button(_F("Clear All Tags  (%d)", tagCount))) then
 			Script.RunInFiber(function()
 				self.m_is_shooting = true
 				Script.Sleep(200)

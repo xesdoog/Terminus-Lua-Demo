@@ -1,14 +1,13 @@
+local NATIVE_INPUTS = require("includes.data.native_inputs")
 local Config        = require("includes.lib.global_vars").Config
 local Helpers       = require("includes.lib.helpers")
-local NATIVE_INPUTS = require("includes.data.native_inputs")
 local IsBitSet      = Bit.IsBitSet
 local FlipBit       = Bit.Flip
 local IsPlaying     = Helpers.IsPlaying
 local Tooltip       = Helpers.Tooltip
 
 
-local INPUT_AIM          = NATIVE_INPUTS.INPUT_AIM
-local INPUT_MELEE_ATTACK = NATIVE_INPUTS.INPUT_MELEE_ATTACK
+local INPUT_AIM = NATIVE_INPUTS.INPUT_AIM
 
 
 ---@enum eEntityGrabFlags
@@ -39,8 +38,9 @@ local PedGrabOptions = {
 ---@class EntityGrabber
 ---@field private m_initialized boolean
 local EntityGrabber   = { m_initialized = false }
-EntityGrabber.__index = EntityGrabber
+EntityGrabber.__index = EntityGrabber ---@private
 
+---@private
 ---@return EntityGrabber
 function EntityGrabber:Init()
 	if (self.m_initialized) then
@@ -61,6 +61,7 @@ function EntityGrabber:Init()
 	return self
 end
 
+---@public
 ---@nodiscard
 ---@return boolean
 function EntityGrabber:IsEnabled()
@@ -116,14 +117,50 @@ function EntityGrabber:ValidateTarget(target)
 	return false
 end
 
+---@private
+function EntityGrabber:OnTick()
+	local config = Config.entity_grabber
+	if not (config.enabled && WEAPON.IS_PED_ARMED(PLAYER.PLAYER_PED_ID(), 4)) then
+		return
+	end
+
+	local isAiming, entity = PLAYER.GET_ENTITY_PLAYER_IS_FREE_AIMING_AT(PLAYER.PLAYER_ID(), 0)
+	if not (isAiming && self:ValidateTarget(entity)) then
+		return
+	end
+
+	local buttonPressed = PAD.IS_CONTROL_PRESSED(0, INPUT_AIM) && KeyManager:IsKeyJustReleased(config.hotkey)
+	if (buttonPressed) then
+		Helpers.BringEntity(entity, 1.14, config.ped_options)
+	end
+end
+
+---@public
 function EntityGrabber:Draw()
 	local cfg   = Config.entity_grabber
-	cfg.enabled = ImGui.Toggle("Enable Script", cfg.enabled)
+	cfg.enabled = ImGui.Toggle("Enable Script##EntityGrabber", cfg.enabled)
 	Tooltip("Aim at an entity with any firerarm and press [F] to bring them to you.")
 
 	if (cfg.enabled) then
-		cfg.max_distance = ImGui.SliderFloat("Maximum Distance", cfg.max_distance, -1.0, 500.0)
-		Tooltip("A value less or equal to zero means infinite range as long as the entity can be aimed at.")
+		local current = KeyManager:GetKeyByCode(cfg.hotkey)
+		if (ImGui.BeginCombo("Hotkey##EntityGrabber", current ? current.name : string.format("0x%X", cfg.hotkey))) then
+			for k, v in pairs(eVirtualKeyCodes) do
+				local selected = v == cfg.hotkey
+				if (ImGui.Selectable(k, selected)) then
+					cfg.hotkey = v
+				end
+
+				if (selected && ImGui.SetItemDefaultFocus --[[missing from older builds]]) then
+					ImGui.SetItemDefaultFocus()
+				end
+			end
+			ImGui.EndCombo()
+		end
+
+		cfg.max_distance = ImGui.SliderFloat("Max Distance", cfg.max_distance, 0.0, 500.0)
+		Tooltip(
+			"Zero means infinite range as long as the entity can be targeted, which depends on your current weapon's range."
+		)
 
 		ImGui.SeparatorText("Entity Flags")
 		for _, obj in pairs(EntityFlagsUiSetup) do
@@ -141,23 +178,6 @@ function EntityGrabber:Draw()
 			pedConfig.Hogtie   = ImGui.Checkbox("Hogtie", pedConfig.Hogtie)
 			pedConfig.Kill     = ImGui.Checkbox("Kill", pedConfig.Kill)
 		end
-	end
-end
-
-function EntityGrabber:OnTick()
-	local config = Config.entity_grabber
-	if not (config.enabled && WEAPON.IS_PED_ARMED(PLAYER.PLAYER_PED_ID(), 4)) then
-		return
-	end
-
-	local isAiming, entity = PLAYER.GET_ENTITY_PLAYER_IS_FREE_AIMING_AT(PLAYER.PLAYER_ID(), 0)
-	if not (isAiming && self:ValidateTarget(entity)) then
-		return
-	end
-
-	local buttonPressed = PAD.IS_CONTROL_PRESSED(0, INPUT_AIM) && PAD.IS_CONTROL_JUST_RELEASED(0, INPUT_MELEE_ATTACK)
-	if (buttonPressed) then
-		Helpers.BringEntity(entity, 1.14, config.ped_options)
 	end
 end
 

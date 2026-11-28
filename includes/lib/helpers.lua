@@ -1,4 +1,5 @@
-local Helpers = {}
+local Helpers   = {}
+Helpers.__index = Helpers
 
 ---@param entity integer
 ---@param attempts? integer
@@ -172,27 +173,27 @@ end
 ---@param texture integer JOAAT
 ---@param x float
 ---@param y float
----@param width float
----@param height float
----@param rotation float
+---@param w float
+---@param h float
+---@param rot float
 ---@param r integer
 ---@param g integer
 ---@param b integer
 ---@param a integer
 ---@param stereorize boolean
-function Helpers.DrawTexture(textureDict, texture,x, y, width, height,rotation,r, g, b, a, stereorize)
-    if (not TXD.HAS_STREAMED_TXD_LOADED(textureDict)) then
+function Helpers.DrawTexture(textureDict, texture, x, y, h, w, rot, r, g, b, a, stereorize)
+    if (not TXD.HAS_STREAMED_TEXTURE_DICT_LOADED(textureDict)) then
        TXD.REQUEST_STREAMED_TEXTURE_DICT(textureDict, false)
 	   return
     end
 
-	GRAPHICS.DRAW_SPRITE(textureDict, texture, 0.5, 0.5, width, height, rotation, r, g, b, a, stereorize)
+	GRAPHICS.DRAW_SPRITE(textureDict, texture, x, y, w, h, rot, r, g, b, a, stereorize)
 end
 
 ---@param textureHash integer JOAAT
 ---@param pos Vector3
 function Helpers.DrawMarker(textureHash, pos)
-	GRAPHICS._DRAW_MARKER(0x94FDAE17, pos.x, pos.y, pos.z + 1.0, 0, 0, 0, 0, 0, 0, 1.0 , 1.0, 1.0, 250, 250, 100, 250, false, true, 2, false, 0, 0, true)
+	GRAPHICS._DRAW_MARKER(textureHash, pos.x, pos.y, pos.z + 1.0, 0, 0, 0, 0, 0, 0, 1.0 , 1.0, 1.0, 250, 250, 100, 250, false, true, 2, false, 0, 0, true)
 end
 
 return Helpers

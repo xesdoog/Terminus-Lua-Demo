@@ -34,7 +34,7 @@ GenericClass = setmetatable({}, {
 	__metatable = false
 })
 
----@alias Obj table|metatable|userdata|Callable|ClassMeta|CStructBase
+---@alias Obj table|metatable|userdata|Callable|ClassMeta
 
 ---@class Enum
 ---@field public First fun(self: Enum): integer Returns the first value of the enum.

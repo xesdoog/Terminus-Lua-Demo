@@ -23,9 +23,7 @@ function SimpleSerializer:Init()
 	if (self.m_path:Exists()) then
 		local saved = self:Load()
 		if (next(saved) != nil) then
-			for k, v in pairs(saved) do
-				Config[k] = v
-			end
+			table.update(Config, saved)
 		end
 	else
 		self:Save()
@@ -72,4 +70,4 @@ function SimpleSerializer:Save()
 	f:close()
 end
 
-return SimpleSerializer
+return SimpleSerializer:Init()

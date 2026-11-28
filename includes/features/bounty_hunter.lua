@@ -19,9 +19,7 @@ local function GetBountyTargetFromScriptLocal()
 		return nil
 	end
 
-	local isPed = ENTITY.IS_ENTITY_A_PED(maybeTarget)
-	local isMissionEntity = ENTITY.IS_ENTITY_A_MISSION_ENTITY(maybeTarget)
-	if not (isPed && isMissionEntity) then
+	if not (ENTITY.IS_ENTITY_A_PED(maybeTarget) && PED.IS_PED_HUMAN(maybeTarget) && ENTITY.IS_ENTITY_A_MISSION_ENTITY(maybeTarget)) then
 		return nil
 	end
 
@@ -30,7 +28,7 @@ end
 
 ---@param ped integer
 ---@return boolean
-local function GetBountyTargetFromDecorator(ped)
+local function DoesPedHaveBountyDecor(ped)
 	if (not DECORATOR.DECOR_EXIST_ON(ped, "proc_bounty_target")) then
 		return false
 	end
@@ -51,7 +49,7 @@ local function TryGetAllBountyTargets()
 			continue
 		end
 
-		if (GetBountyTargetFromDecorator(ped) || bountyTargets[ENTITY.GET_ENTITY_MODEL(ped)]) then
+		if (DoesPedHaveBountyDecor(ped) || bountyTargets[ENTITY.GET_ENTITY_MODEL(ped)]) then
 			table.insert(out, ped)
 		end
 	end
@@ -60,13 +58,13 @@ local function TryGetAllBountyTargets()
 end
 
 return function()
-	local cfg    = Config.bounty_kidnapper
+	local cfg = Config.bounty_kidnapper
 
 	cfg.Knockout = ImGui.Checkbox("Knockout", cfg.Knockout)
 	Helpers.Tooltip("Knockout the target before bringing it.")
 
 	cfg.Hogtie = ImGui.Checkbox("Hogtie", cfg.Hogtie)
-	Helpers.Tooltip("Hogtie the target before bringing it.")
+	Helpers.Tooltip("Hogtie the target before bringing it. May not always succeed.")
 
 	cfg.Kill = ImGui.Checkbox("Kill", cfg.Kill)
 	Helpers.Tooltip("Bring the target dead.")
@@ -81,7 +79,10 @@ return function()
 	end
 
 	Helpers.Tooltip(
-		"Brings the bounty target to you.\n\n[Note]: Under certain circumstances, like clue missions, the target may be invisible but you can still pick them up and deliver them.\nFor clue missions, it is recommended to inspect at least one clue before pressing this button.")
+		"Brings the bounty target to you.\n\n[Note]: Under certain circumstances the target may be invisible but you can still pick them up and deliver them.\nFor clue missions, it is recommended to inspect at least one clue before pressing this button."
+	)
+
+	ImGui.Spacing()
 
 	if (ImGui.Button("Teleport To Bounty Target")) then
 		Script.RunInFiber(function()

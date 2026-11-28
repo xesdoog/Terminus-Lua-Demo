@@ -295,6 +295,29 @@ function table.overwrite(this, src, seen)
 	end
 end
 
+-- Updates `this` table with `src` table.
+---@param this table
+---@param src table
+---@param seen? table
+function table.update(this, src, seen)
+	if (this == src) then return end
+
+	seen = seen or {}
+	if (seen[src]) then return end
+	seen[src] = true
+
+	for k, v in pairs(src) do
+		if (type(v) == "table") then
+			if (type(this[k]) ~= "table") then
+				this[k] = {}
+			end
+			table.overwrite(this[k], v, seen)
+		else
+			this[k] = v
+		end
+	end
+end
+
 ---@param t1 table
 ---@param t2 table
 ---@param seen? table
